@@ -8,6 +8,8 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { ISablierV2Comptroller } from "@sablier/v2-core/src/interfaces/ISablierV2Comptroller.sol";
 import { ISablierV2LockupDynamic } from "@sablier/v2-core/src/interfaces/ISablierV2LockupDynamic.sol";
 import { ISablierV2LockupLinear } from "@sablier/v2-core/src/interfaces/ISablierV2LockupLinear.sol";
+import { ISablierV2SubStreamer } from "src/interfaces/ISablierV2SubStreamer.sol";
+import { IWERC20 } from "src/interfaces/tokens/IWERC20.sol";
 import { LockupDynamic, LockupLinear } from "@sablier/v2-core/src/types/DataTypes.sol";
 
 import { Assertions as V2CoreAssertions } from "@sablier/v2-core/test/utils/Assertions.sol";
@@ -19,7 +21,8 @@ import { ISablierV2MerkleStreamerLL } from "src/interfaces/ISablierV2MerkleStrea
 import { SablierV2Batch } from "src/SablierV2Batch.sol";
 import { SablierV2MerkleStreamerFactory } from "src/SablierV2MerkleStreamerFactory.sol";
 import { SablierV2MerkleStreamerLL } from "src/SablierV2MerkleStreamerLL.sol";
-
+import { SablierV2SubStreamer } from "src/SablierV2SubStreamer.sol";
+import { WERC20 } from "src/tokens/WERC20.sol";
 import { Defaults } from "./utils/Defaults.sol";
 import { DeployOptimized } from "./utils/DeployOptimized.sol";
 import { Events } from "./utils/Events.sol";
@@ -39,11 +42,14 @@ abstract contract Base_Test is DeployOptimized, Events, Merkle, V2CoreAssertions
     //////////////////////////////////////////////////////////////////////////*/
 
     IERC20 internal asset;
+    IWERC20 internal wrapper;
     ISablierV2Batch internal batch;
     ISablierV2Comptroller internal comptroller;
     Defaults internal defaults;
     ISablierV2LockupDynamic internal lockupDynamic;
     ISablierV2LockupLinear internal lockupLinear;
+
+    ISablierV2SubStreamer internal subStreamer;
     ISablierV2MerkleStreamerFactory internal merkleStreamerFactory;
     ISablierV2MerkleStreamerLL internal merkleStreamerLL;
 
@@ -76,6 +82,7 @@ abstract contract Base_Test is DeployOptimized, Events, Merkle, V2CoreAssertions
         // Approve Batch to spend assets from Alice.
         changePrank({ msgSender: users.alice });
         asset.approve({ spender: address(batch), amount: MAX_UINT256 });
+        asset.approve({ spender: address(subStreamer), amount: MAX_UINT256 });
     }
 
     /// @dev Generates a user, labels its address, and funds it with ETH.
@@ -89,6 +96,8 @@ abstract contract Base_Test is DeployOptimized, Events, Merkle, V2CoreAssertions
     /// @dev Conditionally deploy V2 Periphery normally or from an optimized source compiled with `--via-ir`.
     function deployPeripheryConditionally() internal {
         if (!isTestOptimizedProfile()) {
+            subStreamer = new SablierV2SubStreamer();
+            wrapper = new WERC20(address(asset), address(subStreamer));
             batch = new SablierV2Batch();
             merkleStreamerFactory = new SablierV2MerkleStreamerFactory();
         } else {
@@ -105,6 +114,7 @@ abstract contract Base_Test is DeployOptimized, Events, Merkle, V2CoreAssertions
         vm.label({ account: address(comptroller), newLabel: "Comptroller" });
         vm.label({ account: address(lockupDynamic), newLabel: "LockupDynamic" });
         vm.label({ account: address(lockupLinear), newLabel: "LockupLinear" });
+        vm.label({ account: address(subStreamer), newLabel: "SubStreamer"});
     }
 
     /*//////////////////////////////////////////////////////////////////////////
