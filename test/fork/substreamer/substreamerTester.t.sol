@@ -64,7 +64,7 @@ abstract contract SubStreamerTester is Fork_Test {
         recipients[0] = users.admin;
         recipients[1] = users.eve;
 
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 50;
         weights[1] = 50;
 
@@ -138,7 +138,7 @@ abstract contract SubStreamerTester is Fork_Test {
         recipients[0] = users.admin;
         recipients[1] = users.eve;
 
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 30;
         weights[1] = 70;
 
@@ -212,7 +212,7 @@ abstract contract SubStreamerTester is Fork_Test {
         recipients[0] = users.admin;
         recipients[1] = users.eve;
 
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 30;
         weights[1] = 70;
 
@@ -297,7 +297,7 @@ abstract contract SubStreamerTester is Fork_Test {
         recipients[0] = users.admin;
         recipients[1] = users.eve;
 
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 50;
         weights[1] = 50;
 
@@ -390,16 +390,16 @@ abstract contract SubStreamerTester is Fork_Test {
         recipients[1] = users.eve;
 
 
-        uint8[] memory wrongWeights = new uint8[](2);
+        uint128[] memory wrongWeights = new uint128[](2);
         wrongWeights[0] = 0;
         wrongWeights[1] = 100;
 
 
-        uint8[] memory wrongWeightsSum = new uint8[](2);
+        uint128[] memory wrongWeightsSum = new uint128[](2);
         wrongWeightsSum[0] = 55;
         wrongWeightsSum[1] = 55;
 
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 50;
         weights[1] = 50;
 
@@ -456,19 +456,19 @@ abstract contract SubStreamerTester is Fork_Test {
         recipients[1] = users.eve;
 
         address[] memory tooManyRecipients = new address[](20);
-        uint8[] memory tooManyWeights = new uint8[](20);
+        uint128[] memory tooManyWeights = new uint128[](20);
         for(uint i = 0; i < 20; i++)
         {
             tooManyRecipients[i] = users.eve;
             tooManyWeights[i] = 5;
         }
 
-        uint8[] memory weightsThree = new uint8[](3);
+        uint128[] memory weightsThree = new uint128[](3);
         weightsThree[0] = 30;
         weightsThree[1] = 30;
         weightsThree[2] = 30;
 
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 50;
         weights[1] = 50;
 
@@ -485,7 +485,7 @@ abstract contract SubStreamerTester is Fork_Test {
 
     }
 
-/* Test: BadWeatherRecipientNull
+    /* Test: BadWeatherRecipientNull
        Expected failure: Null recipient
        Description: Validate input arguments
     */
@@ -529,7 +529,7 @@ abstract contract SubStreamerTester is Fork_Test {
         address[] memory badRecipients = new address[](2);
         badRecipients[0] = address(0);
         badRecipients[1] = users.eve;
-        uint8[] memory weights = new uint8[](2);
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 50;
         weights[1] = 50;
 
@@ -541,6 +541,78 @@ abstract contract SubStreamerTester is Fork_Test {
         subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, badRecipients, weights, cliff, duration);
 
     }
+
+    /* Test: BadWeatherWithdraw
+       Expected failure: Cannot withdraw
+    */
+    function testFork_BadWeatherWithdraw() external {
+
+        uint128 coinsTransfered = 200;
+        uint128 coinsDealt = 1000;
+        uint40 duration = 20;
+        // Start by creating a stream having the substreamer contract as recipient
+        LockupLinear.CreateWithDurations memory params = defaults.createWithDurations(asset);
+        params.cancelable = false;
+        params.totalAmount = coinsTransfered;
+        params.durations = LockupLinear.Durations({cliff: 0, total: duration});
+        params.recipient = address(subStreamer);
+
+        // Deal 1000 coins to alice
+        deal({ token: address(asset), to: params.sender, give: coinsDealt });
+
+        // Deal zero coins to Eve
+        deal({ token: address(asset), to: users.eve, give: uint256(0)});
+
+        // Switching to Alice
+        changePrank({ msgSender: params.sender });
+
+        // Approve LockupLinear to spend on behalf of Alice
+        asset.approve({ spender: address(lockupLinear), amount: coinsTransfered});
+
+        // Create initial stream
+        uint256 streamId = lockupLinear.createWithDurations(params);
+
+        // Verify Alice's balance
+        assertEq(asset.balanceOf(users.alice), coinsDealt - coinsTransfered);
+
+        // Call substreamer
+        address[] memory recipients = new address[](2);
+        recipients[0] = users.admin;
+        recipients[1] = users.eve;
+
+
+        uint128[] memory weights = new uint128[](2);
+        weights[0] = 50;
+        weights[1] = 50;
+
+
+        // Initialize token wrapper
+        subStreamer.initWrapper(address(wrapper));
+
+        uint256[] memory substreams = subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, 0, duration);
+
+        changePrank({msgSender: users.eve });
+
+        uint256 startTime = lockupLinear.getStartTime(streamId);
+        uint256 endTime = lockupLinear.getEndTime(streamId);
+        uint256 midTime = startTime + (endTime - startTime) / 2;
+
+        // pass time until half duration
+        vm.warp({timestamp: midTime});
+
+        // 50% of 200 coins is 100. After half the time passes, Eve should be able to withdraw 50 coins
+
+        assertEq(lockupLinear.withdrawableAmountOf(substreams[0]), 50);
+        assertEq(lockupLinear.withdrawableAmountOf(substreams[1]), 50);
+        vm.expectRevert(bytes("Invalid requester"));
+        subStreamer.withdraw(lockupLinear, substreams[0], users.eve, 50);
+        vm.expectRevert(bytes("Exceeding withdrawable amount"));
+        subStreamer.withdraw(lockupLinear, substreams[1], users.eve, 51);
+
+
+    }
+
+
 
 
 

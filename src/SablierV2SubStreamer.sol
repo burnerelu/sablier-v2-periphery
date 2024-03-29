@@ -13,7 +13,9 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
     using SafeERC20 for IERC20;
 
     IWERC20 wrappedAsset;
+    address owner;
 
+    mapping(uint256 => bool) private streamUsed;
     mapping(uint256 => uint256[]) private substreams;
     mapping(uint256 => mapping(address => uint256)) private streams;
     mapping(uint256 => uint256) private parentStream;
@@ -33,10 +35,10 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
     }
 
     /* This should have been a modifier, but I had stack size issues */
-    function _checkCorrectWeights(uint8[] calldata weightsPercent) private pure {
+    function _checkCorrectWeights(uint128[] calldata weightsPercent) private pure {
         {
-            uint8 totalSum;
-            for(uint8 i = 0; i < weightsPercent.length; i++)
+            uint128 totalSum;
+            for(uint128 i = 0; i < weightsPercent.length; i++)
             {
                 require((weightsPercent[i] >= 0) && (weightsPercent[i] < 100), "Weight invalid");
                 totalSum += weightsPercent[i];
@@ -50,12 +52,13 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
         uint256 streamId,
         ISablierV2LockupLinear lockupLinear,
         address[] calldata recipients,
-        uint8[] calldata weightsPercent,
+        uint128[] calldata weightsPercent,
         uint40 cliffTime,
         uint40 totalDuration
     ) public  returns (uint256[] memory)
     {
         // Verifies weights and their sum. Should have been a modifier, but I had stack size issues
+        require(streamUsed[streamId] == false, "Cannot use same parent stream twice");
         _checkCorrectWeights(weightsPercent);
         // Verify length of weights data
         require(recipients.length == weightsPercent.length, "Recipients and weight sizes do not match");
@@ -80,7 +83,7 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
 
 
 
-        for (uint8 i = 0; i < recipients.length; i++) {
+        for (uint128 i = 0; i < recipients.length; i++) {
             require(recipients[i] != address(0), "Cannot send to null recipient");
             // compute how many wrapped coins to create
             uint128 amount = stream.amounts.deposited * weightsPercent[i] / 100;
@@ -108,6 +111,7 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
             streams[streamId][recipients[i]] = subStreamId;
             substreams[streamId].push(subStreamId);
             parentStream[subStreamId] = streamId;
+            streamUsed[streamId] = true;
         }
         return substreams[streamId];
     }
