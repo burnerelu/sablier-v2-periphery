@@ -17,7 +17,7 @@ contract WERC20 is IWERC20, ERC20, Ownable {
         transferOwnership(owner_);
     }
 
-    function asset() external returns (address) {
+    function asset() external view returns (address) {
         return address(_asset);
     }
 

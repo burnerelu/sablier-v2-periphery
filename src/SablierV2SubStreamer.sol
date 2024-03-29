@@ -33,12 +33,12 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
     }
 
     /* This should have been a modifier, but I had stack size issues */
-    function _checkCorrectWeights(uint16[] calldata weightsPercent) private pure {
+    function _checkCorrectWeights(uint8[] calldata weightsPercent) private pure {
         {
-            uint16 totalSum;
+            uint8 totalSum;
             for(uint8 i = 0; i < weightsPercent.length; i++)
             {
-                require((weightsPercent[i] > 0) && (weightsPercent[i] < 100), "Weight invalid");
+                require((weightsPercent[i] >= 0) && (weightsPercent[i] < 100), "Weight invalid");
                 totalSum += weightsPercent[i];
             }
             require(totalSum <= 100, "Weight sum invalid");
@@ -50,22 +50,38 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
         uint256 streamId,
         ISablierV2LockupLinear lockupLinear,
         address[] calldata recipients,
-        uint16[] calldata weightsPercent
+        uint8[] calldata weightsPercent,
+        uint40 cliffTime,
+        uint40 totalDuration
     ) public  returns (uint256[] memory)
     {
         // Verifies weights and their sum. Should have been a modifier, but I had stack size issues
         _checkCorrectWeights(weightsPercent);
+        // Verify length of weights data
+        require(recipients.length == weightsPercent.length, "Recipients and weight sizes do not match");
+        require(recipients.length <= 10, "Too many recipients");
+
         // Let's first check the source stream id exists
         LockupLinear.Stream memory stream = lockupLinear.getStream(streamId);
 
+        if(cliffTime == 0 && totalDuration == 0)
+        {
+            // User did not provide - use initial stream data
+            cliffTime = stream.cliffTime - stream.startTime;
+            totalDuration = stream.endTime - stream.startTime;
+        }
+        else
+        {
+            require(cliffTime >= stream.cliffTime - stream.startTime, "Cliff time of child stream must be later in time than cliff time of parent");
+            require(totalDuration >= stream.endTime - stream.startTime, "Duration of child stream cannot be smaller than duration of parent");
+        }
         // Check recipent
         require(lockupLinear.getRecipient(streamId) == address(this), "Recipient of provided stream is not current contract");
 
-        // determine number of people to pay
-        require(recipients.length < 10, "Too many recipients");
-        uint128 recipientsSize = uint128(recipients.length);
 
-        for (uint8 i = 0; i < recipientsSize; i++) {
+
+        for (uint8 i = 0; i < recipients.length; i++) {
+            require(recipients[i] != address(0), "Cannot send to null recipient");
             // compute how many wrapped coins to create
             uint128 amount = stream.amounts.deposited * weightsPercent[i] / 100;
 
@@ -81,7 +97,7 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
                     asset: wrappedAsset,
                     broker: Broker({account: address(0), fee: ud(0) }), // TODO check what we should put here
                     cancelable: stream.isCancelable, // TODO check how to hook cancels
-                    durations: LockupLinear.Durations({ cliff: stream.cliffTime - stream.startTime, total: stream.endTime - stream.startTime}), // TODO TODO TODO TODO TODO why not end - start?
+                    durations: LockupLinear.Durations({ cliff: cliffTime, total: totalDuration}),
                     recipient: address(this),
                     sender: msg.sender, // doesn't matter
                     totalAmount: amount, // TODO ask about protocol fee and broker fee => How can i see net value
@@ -97,6 +113,7 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
     }
 
 
+
     function withdraw(ISablierV2LockupLinear lockupLinear, uint256 subStreamId, address to, uint128 amount) public {
 
         // TODO permissions?
@@ -104,12 +121,9 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
 
         require(streams[streamId][msg.sender] == subStreamId, "Invalid requester");
 
-        // Safe to downast
-        uint128 recipientsSize = uint128(substreams[streamId].length);
-
         // Value that can be withdrawn from parent stream
-        uint128 withdrawable = lockupLinear.withdrawableAmountOf(subStreamId);
-        require(amount <= withdrawable, "Exceeding withdrawable amount");
+        uint128 wrappedWithdrawable = lockupLinear.withdrawableAmountOf(subStreamId);
+        require(amount <= wrappedWithdrawable, "Exceeding withdrawable amount");
 
         // withdraw performs actual check
         lockupLinear.withdraw(subStreamId, address(this), amount);
@@ -118,6 +132,9 @@ contract SablierV2SubStreamer is ISablierV2SubStreamer {
         wrappedAsset.unwrap(amount);
 
         IERC20 asset = lockupLinear.getAsset(streamId);
+        uint128 assetWithdrawable = lockupLinear.withdrawableAmountOf(streamId);
+        require(amount <= assetWithdrawable, "Exceeding withdrawable amount");
+
         lockupLinear.withdraw(streamId, address(this), amount);
 
         asset.safeTransfer({to: to, value: amount});

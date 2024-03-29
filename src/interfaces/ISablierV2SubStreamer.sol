@@ -9,7 +9,7 @@ interface ISablierV2SubStreamer {
 
     function getSubStream(uint256 streamId, address receiver) external view returns (uint256);
 
-    function createLinearSubStreamsWithDuration(uint256 streamId, ISablierV2LockupLinear lockupLinear, address[] calldata receivers, uint16[] calldata weightsPercent) external returns (uint256[] memory);
+    function createLinearSubStreamsWithDuration(uint256 streamId, ISablierV2LockupLinear lockupLinear, address[] calldata receivers, uint8[] calldata weightsPercent, uint40 cliffTime, uint40 totalDuration) external returns (uint256[] memory);
 
     function withdraw(ISablierV2LockupLinear lockupLinear, uint256 subStreamId, address to, uint128 amount) external;
 
