@@ -96,6 +96,7 @@ abstract contract Base_Test is DeployOptimized, Events, Merkle, V2CoreAssertions
     /// @dev Conditionally deploy V2 Periphery normally or from an optimized source compiled with `--via-ir`.
     function deployPeripheryConditionally() internal {
         if (!isTestOptimizedProfile()) {
+            // Set users.alice as owner of contract, so only she can do init wrapper
             subStreamer = new SablierV2SubStreamer();
             wrapper = new WERC20(address(asset), address(subStreamer));
             subStreamer.initWrapper(address(wrapper));

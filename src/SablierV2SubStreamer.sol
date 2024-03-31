@@ -5,23 +5,24 @@ import { ISablierV2LockupLinear } from "@sablier/v2-core/src/interfaces/ISablier
 import { ISablierV2SubStreamer } from "./interfaces/ISablierV2SubStreamer.sol";
 import { IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IWERC20 } from "./interfaces/tokens/IWERC20.sol";
 import { Lockup, LockupDynamic, LockupLinear, Broker } from "@sablier/v2-core/src/types/DataTypes.sol";
 import { ud, UD60x18 } from "@prb/math/src/UD60x18.sol";
 
-contract SablierV2SubStreamer is ISablierV2SubStreamer {
+contract SablierV2SubStreamer is ISablierV2SubStreamer, Ownable {
     using SafeERC20 for IERC20;
 
     IWERC20 wrappedAsset;
-    address owner;
 
     mapping(uint256 => bool) private streamUsed;
     mapping(uint256 => uint256[]) private substreams;
     mapping(uint256 => mapping(address => uint256)) private streams;
     mapping(uint256 => uint256) private parentStream;
 
+
     /* Initializes token wrapper variable with address of contract */
-    function initWrapper(address wrapper) public
+    function initWrapper(address wrapper) onlyOwner public
     {
         wrappedAsset = IWERC20(wrapper);
     }

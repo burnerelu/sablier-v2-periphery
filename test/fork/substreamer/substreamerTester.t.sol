@@ -340,6 +340,15 @@ abstract contract SubStreamerTester is Fork_Test {
      *
      */
 
+    /* Test: BadWeatherInitWrapper
+       Expected failure: No permissions to call initWrapper on subStreamer contract
+       Description: Validate that only contract owner can call init wrapper
+    */
+    function testFork_BadWeatherInitWrapper() external {
+        changePrank({msgSender: users.eve });
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        subStreamer.initWrapper(address(wrapper));
+    }
     /* Test: BadWeatherArgs
        Expected failure: Wrong cliff size, wrong duration size, wrong weight, wrong wight sum
        Description: Validate input arguments
