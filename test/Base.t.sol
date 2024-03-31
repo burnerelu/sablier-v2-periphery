@@ -98,6 +98,7 @@ abstract contract Base_Test is DeployOptimized, Events, Merkle, V2CoreAssertions
         if (!isTestOptimizedProfile()) {
             subStreamer = new SablierV2SubStreamer();
             wrapper = new WERC20(address(asset), address(subStreamer));
+            subStreamer.initWrapper(address(wrapper));
             batch = new SablierV2Batch();
             merkleStreamerFactory = new SablierV2MerkleStreamerFactory();
         } else {

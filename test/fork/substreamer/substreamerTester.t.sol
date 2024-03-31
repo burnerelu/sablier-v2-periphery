@@ -68,8 +68,6 @@ abstract contract SubStreamerTester is Fork_Test {
         weights[0] = 50;
         weights[1] = 50;
 
-        // Initialize token wrapper
-        subStreamer.initWrapper(address(wrapper));
 
         uint256[] memory substreams = subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, cliff, duration);
 
@@ -142,8 +140,6 @@ abstract contract SubStreamerTester is Fork_Test {
         weights[0] = 30;
         weights[1] = 70;
 
-        subStreamer.initWrapper(address(wrapper));
-
         uint256[] memory substreams = subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, cliff, duration);
 
         assertEq(wrapper.balanceOf(address(lockupLinear)), coinsTransfered);
@@ -215,8 +211,6 @@ abstract contract SubStreamerTester is Fork_Test {
         uint128[] memory weights = new uint128[](2);
         weights[0] = 30;
         weights[1] = 70;
-
-        subStreamer.initWrapper(address(wrapper));
 
         uint256[] memory substreams = subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, cliff, duration);
 
@@ -300,9 +294,6 @@ abstract contract SubStreamerTester is Fork_Test {
         uint128[] memory weights = new uint128[](2);
         weights[0] = 50;
         weights[1] = 50;
-
-        // Initialize token wrapper
-        subStreamer.initWrapper(address(wrapper));
 
         uint256[] memory substreams = subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, cliff, duration_child);
 
@@ -403,9 +394,6 @@ abstract contract SubStreamerTester is Fork_Test {
         weights[0] = 50;
         weights[1] = 50;
 
-        // Initialize token wrapper
-        subStreamer.initWrapper(address(wrapper));
-
         vm.expectRevert(bytes("Cliff time of child stream must be later in time than cliff time of parent"));
         subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, cliff-1, duration);
         vm.expectRevert(bytes("Duration of child stream cannot be smaller than duration of parent"));
@@ -472,9 +460,6 @@ abstract contract SubStreamerTester is Fork_Test {
         weights[0] = 50;
         weights[1] = 50;
 
-        // Initialize token wrapper
-        subStreamer.initWrapper(address(wrapper));
-
         vm.expectRevert(bytes("Recipient of provided stream is not current contract"));
         subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, cliff, duration);
         vm.expectRevert(bytes("Too many recipients"));
@@ -534,9 +519,6 @@ abstract contract SubStreamerTester is Fork_Test {
         weights[1] = 50;
 
 
-        // Initialize token wrapper
-        subStreamer.initWrapper(address(wrapper));
-
         vm.expectRevert(bytes("Cannot send to null recipient"));
         subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, badRecipients, weights, cliff, duration);
 
@@ -585,9 +567,6 @@ abstract contract SubStreamerTester is Fork_Test {
         weights[0] = 50;
         weights[1] = 50;
 
-
-        // Initialize token wrapper
-        subStreamer.initWrapper(address(wrapper));
 
         uint256[] memory substreams = subStreamer.createLinearSubStreamsWithDuration(streamId, lockupLinear, recipients, weights, 0, duration);
 
